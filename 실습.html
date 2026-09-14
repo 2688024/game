@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+
+<!-- 웹페이지 제목 -->
+<title>두더지 잡기</title>
+
+<style>
+/* 페이지 전체 글자를 가운데 정렬 */
+body {
+    text-align: center;
+    font-family: Arial;
+}
+
+/* 게임 화면인 canvas에 테두리 추가 */
+canvas {
+    border: 2px solid black;
+}
+</style>
+
+</head>
+
+<body>
+
+    <!-- 게임 제목 -->
+    <h1>두더지 잡기</h1>
+
+    <!-- 점수와 남은 시간을 표시하는 부분 -->
+    <p>
+        점수 :
+        <span id="score">0</span>
+        |
+        남은 시간 :
+        <span id="time">30</span>초
+    </p>
+
+    <!-- 난이도 선택 -->
+    <label for="difficulty">난이도 : </label>
+
+    <select id="difficulty">
+        <!-- 쉬운 난이도 -->
+        <option value="easy">하</option>
+
+        <!-- 기본 난이도는 중간으로 설정 -->
+        <option value="normal" selected>중</option>
+
+        <!-- 어려운 난이도 -->
+        <option value="hard">상</option>
+    </select>
+
+    <!-- 게임 시작 버튼 -->
+    <button id="startButton" onclick="startGame()">
+        게임 시작
+    </button>
+
+    <!-- 일시정지 버튼
+         처음에는 게임이 시작되지 않았으므로 비활성화 -->
+    <button id="pauseButton" onclick="pauseGame()" disabled>
+        일시정지
+    </button>
+
+    <br><br>
+
+    <!-- 실제 게임이 그려지는 캔버스 -->
+    <canvas id="gameCanvas" width="600" height="400">
+    </canvas>
+
+
+<script>
+
+// ======================================================
+// 1. HTML 요소 가져오기
+// ======================================================
+
+// 게임 화면인 canvas 가져오기
+const canvas = document.getElementById('gameCanvas');
+
+// canvas에서 그림을 그릴 수 있는 2D 도구 가져오기
+const ctx = canvas.getContext("2d");
+
+// 점수를 표시하는 span
+const scoreText = document.getElementById("score");
+
+// 남은 시간을 표시하는 span
+const timeText = document.getElementById("time");
+
+
+// ======================================================
+// 2. 게임에 필요한 변수
+// ======================================================
+
+// 두더지의 현재 X 좌표
+let moleX = 300;
+
+// 두더지의 현재 Y 좌표
+let moleY = 200;
+
+// 두더지를 클릭할 수 있는 범위
+// 숫자가 클수록 클릭하기 쉬워짐
+let moleRadius = 50;
+
+
+// 현재 점수
+let score = 0;
+
+// 남은 게임 시간
+let timeLeft = 30;
+
+// 게임이 현재 실행 중인지 확인
+// true  = 게임 진행 중
+// false = 게임 진행 중이 아님
+let gameRunning = false;
+
+// 두더지가 이동하는 시간 간격
+// 1000 = 1초
+let moleSpeed = 1000;
+
+// 게임 시간을 감소시키는 setInterval의 ID
+let timerId;
+
+// 두더지를 움직이는 setInterval의 ID
+let moleMoveId;
+
+
+// ======================================================
+// 3. 게임 시작 함수
+// ======================================================
+
+function startGame() {
+
+    // 점수를 0으로 초기화
+    score = 0;
+
+    // 게임 시간을 30초로 초기화
+    timeLeft = 30;
+
+    // 게임을 실행 상태로 변경
+    gameRunning = true;
+
+
+    // ----------------------------------------------
+    // 게임이 시작되면 난이도 변경을 막음
+    // ----------------------------------------------
+
+    document.getElementById("difficulty").disabled = true;
+
+
+    // 게임이 진행되는 동안에는
+    // 게임 시작 버튼을 다시 누르지 못하도록 함
+
+    document.getElementById("startButton").disabled = true;
+
+
+    // 게임이 시작되었으므로
+    // 일시정지 버튼을 활성화
+
+    document.getElementById("pauseButton").disabled = false;
+
+
+    // ----------------------------------------------
+    // 현재 선택된 난이도 가져오기
+    // ----------------------------------------------
+
+    const difficulty =
+        document.getElementById("difficulty").value;
+
+
+    // ----------------------------------------------
+    // 난이도에 따른 설정
+    // ----------------------------------------------
+
+    if (difficulty === "easy") {
+
+        // 두더지가 1.5초마다 이동
+        moleSpeed = 1500;
+
+        // 클릭 범위를 가장 크게 설정
+        moleRadius = 55;
+
+    }
+
+    else if (difficulty === "normal") {
+
+        // 두더지가 1초마다 이동
+        moleSpeed = 500;
+
+        // 클릭 범위
+        moleRadius = 50;
+
+    }
+
+    else if (difficulty === "hard") {
+
+        // 두더지가 0.6초마다 이동
+        moleSpeed = 10;
+
+        // 클릭 범위를 조금 작게 설정
+        moleRadius = 45;
+    }
+
+
+    // ----------------------------------------------
+    // 화면에 점수와 시간을 초기화해서 표시
+    // ----------------------------------------------
+
+    scoreText.textContent = score;
+    timeText.textContent = timeLeft;
+
+
+    // 혹시 기존 게임의 타이머가 있다면 제거
+    clearInterval(timerId);
+
+    // 혹시 기존 두더지 이동 타이머가 있다면 제거
+    clearInterval(moleMoveId);
+
+
+    // 게임 시작과 동시에 두더지를 한 번 이동시킴
+    moveMole();
+
+
+    // ----------------------------------------------
+    // 1초마다 남은 시간을 1씩 감소
+    // ----------------------------------------------
+
+    timerId = setInterval(() => {
+
+        // 남은 시간을 1초 감소
+        timeLeft--;
+
+        // 화면에 변경된 시간을 표시
+        timeText.textContent = timeLeft;
+
+
+        // 시간이 0이 되면 게임 종료
+        if (timeLeft <= 0) {
+            endGame();
+        }
+
+    }, 1000);
+
+
+    // ----------------------------------------------
+    // 난이도에 맞는 속도로 두더지 이동
+    // ----------------------------------------------
+
+    moleMoveId = setInterval(moveMole, moleSpeed);
+}
+
+
+// ======================================================
+// 4. 게임 종료 함수
+// ======================================================
+
+function endGame() {
+
+    // 게임을 종료 상태로 변경
+    gameRunning = false;
+
+
+    // 시간 타이머 정지
+    clearInterval(timerId);
+
+    // 두더지 이동 정지
+    clearInterval(moleMoveId);
+
+
+    // ----------------------------------------------
+    // 게임이 끝났으므로 다시 난이도 선택 가능
+    // ----------------------------------------------
+
+    document.getElementById("difficulty").disabled = false;
+
+
+    // 게임 시작 버튼 다시 활성화
+    document.getElementById("startButton").disabled = false;
+
+
+    // 일시정지 버튼 비활성화
+    document.getElementById("pauseButton").disabled = true;
+
+
+    // 일시정지 버튼 글자를 원래대로 변경
+    document.getElementById("pauseButton").textContent = "일시정지";
+
+
+    // ----------------------------------------------
+    // 캔버스에 있던 두더지 지우기
+    // ----------------------------------------------
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // 게임 종료 메시지
+    ctx.font = "32px Arial";
+
+    // 글자 색상
+    ctx.fillStyle = "black";
+
+    // 글자를 가운데 정렬
+    ctx.textAlign = "center";
+
+
+    // "게임 종료!" 표시
+    ctx.fillText(
+        "게임 종료!",
+        canvas.width / 2,
+        180
+    );
+
+
+    // 최종 점수 표시
+    ctx.fillText(
+        "최종 점수: " + score,
+        canvas.width / 2,
+        230
+    );
+}
+
+
+// ======================================================
+// 5. 일시정지 / 계속하기 함수
+// ======================================================
+
+function pauseGame() {
+
+
+    // ==================================================
+    // 현재 게임이 진행 중이라면
+    // ==================================================
+
+    if (gameRunning) {
+
+        // 게임 상태를 일시정지로 변경
+        gameRunning = false;
+
+
+        // 시간 감소 정지
+        clearInterval(timerId);
+
+        // 두더지 이동 정지
+        clearInterval(moleMoveId);
+
+
+        // ----------------------------------------------
+        // 캔버스 전체를 반투명 검은색으로 덮기
+        // ----------------------------------------------
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        // ----------------------------------------------
+        // "일시정지" 글자 표시
+        // ----------------------------------------------
+
+        ctx.font = "40px Arial";
+
+        ctx.fillStyle = "white";
+
+        ctx.textAlign = "center";
+
+        ctx.fillText(
+            "일시정지",
+            canvas.width / 2,
+            canvas.height / 2
+        );
+
+
+        // 버튼 글자를 "계속하기"로 변경
+        document.getElementById("pauseButton").textContent =
+            "계속하기";
+
+    }
+
+
+    // ==================================================
+    // 현재 게임이 일시정지 상태라면
+    // 게임을 다시 시작
+    // ==================================================
+
+    else {
+
+        // 게임을 다시 실행 상태로 변경
+        gameRunning = true;
+
+
+        // ----------------------------------------------
+        // 시간 다시 감소시키기
+        // ----------------------------------------------
+
+        timerId = setInterval(() => {
+
+            timeLeft--;
+
+            timeText.textContent = timeLeft;
+
+
+            // 시간이 끝나면 게임 종료
+            if (timeLeft <= 0) {
+                endGame();
+            }
+
+        }, 1000);
+
+
+        // ----------------------------------------------
+        // 두더지 다시 움직이기
+        // ----------------------------------------------
+
+        moleMoveId = setInterval(
+            moveMole,
+            moleSpeed
+        );
+
+
+        // 일시정지 화면을 없애고 두더지를 다시 그림
+        drawMole();
+
+
+        // 버튼 글자를 다시 "일시정지"로 변경
+        document.getElementById("pauseButton").textContent =
+            "일시정지";
+    }
+}
+
+
+// ======================================================
+// 6. 두더지 그리기 함수
+// ======================================================
+
+function drawMole() {
+
+    // 기존 캔버스 내용을 모두 지움
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // ==================================================
+    // ① 두더지 몸통
+    // ==================================================
+
+    ctx.beginPath();
+
+    // 타원 모양으로 몸통 그리기
+    ctx.ellipse(
+        moleX,
+        moleY + 15,
+        38,
+        45,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+
+    // 몸통에 입체적인 색상을 만들기 위한
+    // 원형 그라데이션
+
+    const bodyGradient = ctx.createRadialGradient(
+        moleX - 10,
+        moleY,
+        5,
+        moleX,
+        moleY + 10,
+        50
+    );
+
+
+    // 밝은 갈색
+    bodyGradient.addColorStop(
+        0,
+        "#8B5A2B"
+    );
+
+    // 중간 갈색
+    bodyGradient.addColorStop(
+        0.7,
+        "#6B3E1E"
+    );
+
+    // 어두운 갈색
+    bodyGradient.addColorStop(
+        1,
+        "#3E2412"
+    );
+
+
+    // 그라데이션을 몸통 색상으로 사용
+    ctx.fillStyle = bodyGradient;
+
+    // 몸통 채우기
+    ctx.fill();
+
+
+    // ==================================================
+    // ② 왼쪽 귀
+    // ==================================================
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX - 28,
+        moleY - 20,
+        13,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#6B3E1E";
+
+    ctx.fill();
+
+
+    // 왼쪽 귀 안쪽
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX - 28,
+        moleY - 20,
+        7,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#C47A62";
+
+    ctx.fill();
+
+
+    // ==================================================
+    // ③ 오른쪽 귀
+    // ==================================================
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX + 28,
+        moleY - 20,
+        13,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#6B3E1E";
+
+    ctx.fill();
+
+
+    // 오른쪽 귀 안쪽
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX + 28,
+        moleY - 20,
+        7,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#C47A62";
+
+    ctx.fill();
+
+
+    // ==================================================
+    // ④ 두더지 얼굴
+    // ==================================================
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        moleX,
+        moleY,
+        32,
+        30,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+
+    // 얼굴 그라데이션
+
+    const faceGradient = ctx.createRadialGradient(
+        moleX - 8,
+        moleY - 8,
+        3,
+        moleX,
+        moleY,
+        35
+    );
+
+
+    faceGradient.addColorStop(
+        0,
+        "#A66A35"
+    );
+
+    faceGradient.addColorStop(
+        1,
+        "#5A3219"
+    );
+
+
+    ctx.fillStyle = faceGradient;
+
+    ctx.fill();
+
+
+    // ==================================================
+    // ⑤ 왼쪽 눈
+    // ==================================================
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX - 12,
+        moleY - 5,
+        5,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "black";
+
+    ctx.fill();
+
+
+    // 왼쪽 눈의 흰색 하이라이트
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX - 10,
+        moleY - 7,
+        2,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "white";
+
+    ctx.fill();
+
+
+    // ==================================================
+    // ⑥ 오른쪽 눈
+    // ==================================================
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX + 12,
+        moleY - 5,
+        5,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "black";
+
+    ctx.fill();
+
+
+    // 오른쪽 눈의 흰색 하이라이트
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX + 14,
+        moleY - 7,
+        2,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "white";
+
+    ctx.fill();
+
+
+    // ==================================================
+    // ⑦ 코
+    // ==================================================
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moleX,
+        moleY + 7,
+        9,
+        0,
+        Math.PI * 2
+    );
+
+
+    // 코 그라데이션
+
+    const noseGradient = ctx.createRadialGradient(
+        moleX - 3,
+        moleY + 4,
+        1,
+        moleX,
+        moleY + 7,
+        10
+    );
+
+
+    noseGradient.addColorStop(
+        0,
+        "#FF9A8B"
+    );
+
+    noseGradient.addColorStop(
+        1,
+        "#A83F3F"
+    );
+
+
+    ctx.fillStyle = noseGradient;
+
+    ctx.fill();
+
+
+    // ==================================================
+    // ⑧ 입
+    // ==================================================
+
+    ctx.beginPath();
+
+    // 반원 형태로 입 그리기
+    ctx.arc(
+        moleX,
+        moleY + 13,
+        10,
+        0,
+        Math.PI
+    );
+
+    ctx.strokeStyle = "#24130B";
+
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+
+
+    // ==================================================
+    // ⑨ 왼쪽 수염
+    // ==================================================
+
+    ctx.strokeStyle = "#D8C3A5";
+
+    ctx.lineWidth = 1.5;
+
+
+    // 첫 번째 수염
+    ctx.beginPath();
+
+    ctx.moveTo(
+        moleX - 7,
+        moleY + 10
+    );
+
+    ctx.lineTo(
+        moleX - 35,
+        moleY + 3
+    );
+
+    ctx.stroke();
+
+
+    // 두 번째 수염
+    ctx.beginPath();
+
+    ctx.moveTo(
+        moleX - 7,
+        moleY + 14
+    );
+
+    ctx.lineTo(
+        moleX - 37,
+        moleY + 16
+    );
+
+    ctx.stroke();
+
+
+    // 세 번째 수염
+    ctx.beginPath();
+
+    ctx.moveTo(
+        moleX - 7,
+        moleY + 18
+    );
+
+    ctx.lineTo(
+        moleX - 34,
+        moleY + 28
+    );
+
+    ctx.stroke();
+
+
+    // ==================================================
+    // ⑩ 오른쪽 수염
+    // ==================================================
+
+    // 첫 번째 수염
+    ctx.beginPath();
+
+    ctx.moveTo(
+        moleX + 7,
+        moleY + 10
+    );
+
+    ctx.lineTo(
+        moleX + 35,
+        moleY + 3
+    );
+
+    ctx.stroke();
+
+
+    // 두 번째 수염
+    ctx.beginPath();
+
+    ctx.moveTo(
+        moleX + 7,
+        moleY + 14
+    );
+
+    ctx.lineTo(
+        moleX + 37,
+        moleY + 16
+    );
+
+    ctx.stroke();
+
+
+    // 세 번째 수염
+    ctx.beginPath();
+
+    ctx.moveTo(
+        moleX + 7,
+        moleY + 18
+    );
+
+    ctx.lineTo(
+        moleX + 34,
+        moleY + 28
+    );
+
+    ctx.stroke();
+
+
+    // ==================================================
+    // ⑪ 두더지 털 표현
+    // ==================================================
+
+    ctx.strokeStyle = "#3B2112";
+
+    ctx.lineWidth = 1;
+
+
+    // 12개의 털을 랜덤한 방향으로 그리기
+
+    for (let i = 0; i < 12; i++) {
+
+        // 랜덤한 각도 생성
+        const angle = Math.random() * Math.PI * 2;
+
+
+        // 털이 시작되는 X 위치
+        const x =
+            moleX +
+            Math.cos(angle) * 30;
+
+
+        // 털이 시작되는 Y 위치
+        const y =
+            moleY +
+            15 +
+            Math.sin(angle) * 35;
+
+
+        // 털 그리기
+        ctx.beginPath();
+
+        ctx.moveTo(x, y);
+
+        ctx.lineTo(
+            x + Math.cos(angle) * 5,
+            y + Math.sin(angle) * 5
+        );
+
+        ctx.stroke();
+    }
+}
+
+
+// ======================================================
+// 7. 두더지 이동 함수
+// ======================================================
+
+function moveMole() {
+
+    // 두더지가 캔버스 밖으로 나가지 않도록
+    // 랜덤한 X 위치 생성
+
+    moleX =
+        Math.random() *
+        (canvas.width - 80) +
+        40;
+
+
+    // 두더지가 캔버스 밖으로 나가지 않도록
+    // 랜덤한 Y 위치 생성
+
+    moleY =
+        Math.random() *
+        (canvas.height - 80) +
+        40;
+
+
+    // 새로운 위치에 두더지 그리기
+    drawMole();
+}
+
+
+// ======================================================
+// 8. 캔버스 클릭 이벤트
+// ======================================================
+
+canvas.addEventListener("click", function (event) {
+
+    // 캔버스의 실제 위치 가져오기
+    const rect =
+        canvas.getBoundingClientRect();
+
+
+    // 마우스의 X 좌표
+    // 캔버스의 왼쪽 위치를 빼서
+    // 캔버스 기준 좌표로 변경
+
+    const mouseX =
+        event.clientX - rect.left;
+
+
+    // 마우스의 Y 좌표
+    const mouseY =
+        event.clientY - rect.top;
+
+
+    // ----------------------------------------------
+    // 마우스와 두더지 사이의 X 거리
+    // ----------------------------------------------
+
+    const dx =
+        mouseX - moleX;
+
+
+    // 마우스와 두더지 사이의 Y 거리
+
+    const dy =
+        mouseY - moleY;
+
+
+    // ----------------------------------------------
+    // 피타고라스 정리를 이용해서
+    // 마우스와 두더지 중심 사이의 실제 거리 계산
+    // ----------------------------------------------
+
+    const distance =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
+
+    // ----------------------------------------------
+    // 마우스가 두더지의 클릭 범위 안에 있다면
+    // ----------------------------------------------
+
+    if (distance <= moleRadius) {
+
+        // 점수 1점 추가
+        score++;
+
+
+        // 화면에 변경된 점수 표시
+        scoreText.textContent = score;
+
+
+        // 두더지를 새로운 위치로 이동
+        moveMole();
+    }
+
+});
+
+</script>
+
+</body>
+</html>
