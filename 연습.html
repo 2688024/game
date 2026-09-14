@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>두더지 잡기</title>
+
+<style>
+body {
+    text-align: center;
+    font-family: Arial;
+}
+
+canvas {
+    border: 2px solid black;
+}
+</style>
+
+</head>
+<body>
+
+    <h1>두더지 잡기</h1>
+
+    <p>
+        점수 :
+        <span id="score">0</span> | 남은 시간 : <span id="time">30</span>초
+    </p>
+    
+<label for="difficulty">난이도 : </label>
+
+<select id="difficulty">
+    <option value="easy">하</option>
+    <option value="normal" selected>중</option>
+    <option value="hard">상</option>
+</select>
+
+<button onclick="startGame()">게임 시작</button>
+ <br> <br>
+
+    <canvas id="gameCanvas" width="600" height="400">
+    </canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext("2d");
+        const scoreText = document.getElementById("score");
+        const timeText = document.getElementById("time");
+
+    let moleX = 300;
+    let moleY = 200;
+    let moleRadius = 50;
+
+    let score = 0;
+
+    let timeLeft = 30;
+    let gameRunning = false;
+    let moleSpeed = 1000;
+    let timerId;
+    let moleMoveId;
+
+function startGame() {
+    score = 0;
+    timeLeft = 30;
+    gameRunning = true;
+
+    // 난이도 선택창 잠금
+    document.getElementById("difficulty").disabled = true;
+
+    const difficulty = document.getElementById("difficulty").value;
+
+    if (difficulty === "easy") {
+        moleSpeed = 1500;
+        moleRadius = 50;
+    } 
+    else if (difficulty === "normal") {
+        moleSpeed = 500;
+        moleRadius = 50;
+    } 
+    else if (difficulty === "hard") {
+        moleSpeed = 10;
+        moleRadius = 52;
+    }
+
+    scoreText.textContent = score;
+    timeText.textContent = timeLeft;
+
+    clearInterval(timerId);
+    clearInterval(moleMoveId);
+
+    moveMole();
+
+    timerId = setInterval(() => {
+        timeLeft--;
+        timeText.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }, 1000);
+
+    moleMoveId = setInterval(moveMole, moleSpeed);
+}
+
+
+
+function endGame() {
+    gameRunning = false;
+
+    clearInterval(timerId);
+    clearInterval(moleMoveId);
+
+    // 난이도 다시 선택 가능
+    document.getElementById("difficulty").disabled = false;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = '32px Arial';
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+
+    ctx.fillText("게임 종료!", canvas.width / 2, 180);
+    ctx.fillText("최종 점수: " + score, canvas.width / 2, 230);
+}
+
+
+//여기부터
+function drawMole() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // =========================
+    // 1. 두더지 몸통
+    // =========================
+    ctx.beginPath();
+    ctx.ellipse(
+        moleX,
+        moleY + 15,
+        38,
+        45,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    const bodyGradient = ctx.createRadialGradient(
+        moleX - 10, moleY,
+        5,
+        moleX, moleY + 10,
+        50
+    );
+
+    bodyGradient.addColorStop(0, "#8B5A2B");
+    bodyGradient.addColorStop(0.7, "#6B3E1E");
+    bodyGradient.addColorStop(1, "#3E2412");
+
+    ctx.fillStyle = bodyGradient;
+    ctx.fill();
+
+    // =========================
+    // 2. 귀 - 왼쪽
+    // =========================
+    ctx.beginPath();
+    ctx.arc(moleX - 28, moleY - 20, 13, 0, Math.PI * 2);
+    ctx.fillStyle = "#6B3E1E";
+    ctx.fill();
+
+    // 귀 안쪽
+    ctx.beginPath();
+    ctx.arc(moleX - 28, moleY - 20, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#C47A62";
+    ctx.fill();
+
+    // =========================
+    // 3. 귀 - 오른쪽
+    // =========================
+    ctx.beginPath();
+    ctx.arc(moleX + 28, moleY - 20, 13, 0, Math.PI * 2);
+    ctx.fillStyle = "#6B3E1E";
+    ctx.fill();
+
+    // 귀 안쪽
+    ctx.beginPath();
+    ctx.arc(moleX + 28, moleY - 20, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#C47A62";
+    ctx.fill();
+
+    // =========================
+    // 4. 얼굴
+    // =========================
+    ctx.beginPath();
+    ctx.ellipse(
+        moleX,
+        moleY,
+        32,
+        30,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    const faceGradient = ctx.createRadialGradient(
+        moleX - 8,
+        moleY - 8,
+        3,
+        moleX,
+        moleY,
+        35
+    );
+
+    faceGradient.addColorStop(0, "#A66A35");
+    faceGradient.addColorStop(1, "#5A3219");
+
+    ctx.fillStyle = faceGradient;
+    ctx.fill();
+
+    // =========================
+    // 5. 눈 - 왼쪽
+    // =========================
+    ctx.beginPath();
+    ctx.arc(moleX - 12, moleY - 5, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "black";
+    ctx.fill();
+
+    // 눈 하이라이트
+    ctx.beginPath();
+    ctx.arc(moleX - 10, moleY - 7, 2, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+
+    // =========================
+    // 6. 눈 - 오른쪽
+    // =========================
+    ctx.beginPath();
+    ctx.arc(moleX + 12, moleY - 5, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "black";
+    ctx.fill();
+
+    // 눈 하이라이트
+    ctx.beginPath();
+    ctx.arc(moleX + 14, moleY - 7, 2, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+
+    // =========================
+    // 7. 코
+    // =========================
+    ctx.beginPath();
+    ctx.arc(moleX, moleY + 7, 9, 0, Math.PI * 2);
+
+    const noseGradient = ctx.createRadialGradient(
+        moleX - 3,
+        moleY + 4,
+        1,
+        moleX,
+        moleY + 7,
+        10
+    );
+
+    noseGradient.addColorStop(0, "#FF9A8B");
+    noseGradient.addColorStop(1, "#A83F3F");
+
+    ctx.fillStyle = noseGradient;
+    ctx.fill();
+
+    // =========================
+    // 8. 입
+    // =========================
+    ctx.beginPath();
+    ctx.arc(
+        moleX,
+        moleY + 13,
+        10,
+        0,
+        Math.PI
+    );
+
+    ctx.strokeStyle = "#24130B";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // =========================
+    // 9. 수염 - 왼쪽
+    // =========================
+    ctx.strokeStyle = "#D8C3A5";
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.moveTo(moleX - 7, moleY + 10);
+    ctx.lineTo(moleX - 35, moleY + 3);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(moleX - 7, moleY + 14);
+    ctx.lineTo(moleX - 37, moleY + 16);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(moleX - 7, moleY + 18);
+    ctx.lineTo(moleX - 34, moleY + 28);
+    ctx.stroke();
+
+    // =========================
+    // 10. 수염 - 오른쪽
+    // =========================
+    ctx.beginPath();
+    ctx.moveTo(moleX + 7, moleY + 10);
+    ctx.lineTo(moleX + 35, moleY + 3);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(moleX + 7, moleY + 14);
+    ctx.lineTo(moleX + 37, moleY + 16);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(moleX + 7, moleY + 18);
+    ctx.lineTo(moleX + 34, moleY + 28);
+    ctx.stroke();
+
+    // =========================
+    // 11. 몸통에 털 느낌 추가
+    // =========================
+    ctx.strokeStyle = "#3B2112";
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const x = moleX + Math.cos(angle) * 30;
+        const y = moleY + 15 + Math.sin(angle) * 35;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(
+            x + Math.cos(angle) * 5,
+            y + Math.sin(angle) * 5
+        );
+        ctx.stroke();
+    }
+}
+//여기까지
+
+    // drawMole();
+
+    function moveMole() {
+        moleX = Math.random() * (canvas.width-80) + 40;
+        moleY = Math.random() * (canvas.height-80) + 40;
+        drawMole();
+    }
+    // setInterval(moveMole, 1000);
+
+    canvas.addEventListener("click", function (event) {
+        const rect = canvas.getBoundingClientRect();
+        // alert(rect.left);
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+const dx = mouseX - moleX;
+const dy = mouseY - moleY;
+const distance = Math.sqrt(dx * dx + dy * dy);
+
+if(distance <= moleRadius) {
+    score++;
+    scoreText.textContent = score;
+    moveMole();
+}
+    });
+</script>
+
+</body>
+</html>
