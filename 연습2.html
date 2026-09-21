@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>공 잡기 게임</title>
+
+<style>
+body{
+    text-align:center;
+    font-family:Arial;
+}
+
+canvas{
+    border:2px solid black;
+    cursor:pointer;
+}
+</style>
+
+</head>
+<body>
+
+<h1>공 잡기 게임</h1>
+
+<p>
+    점수 : <span id="score">0</span> |
+    최고 점수 : <span id="highScore">0</span> |
+    남은 시간 : <span id="time">30</span>초 |
+    속도 : <span id="speed">1</span> 단계 |
+    콤보 : <span id="combo">0</span>
+</p>
+
+<button onclick="startGame()">게임 시작</button> <br><br>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const scoreText = document.getElementById("score");
+const speedText = document.getElementById("speed");
+const timeText = document.getElementById("time");
+
+const highScoreText = document.getElementById("highScore");
+const comboText = document.getElementById("combo");
+
+let score = 0;
+
+let speedLevel = 1;
+
+let timeLeft = 30;
+let gameRunning = false;
+let timerId;
+let animId;
+
+
+// 최고 점수 저장
+let highScore = localStorage.getItem("highScore") || 0;
+highScoreText.textContent = highScore;
+
+
+// 콤보 관련 변수
+let combo = 0;
+let comboTimer;
+
+
+// 황금공과 폭탄공 상태
+let goldenBall = false;
+let bombBall = false;
+
+let goldenBallTimer;
+let bombBallTimer;
+
+
+// 클릭 효과를 저장하는 배열
+let effects = [];
+
+
+function startGame() {
+
+    if(animId) {
+        cancelAnimationFrame(animId);
+    }
+
+    score = 0;
+    timeLeft = 30;
+    speedLevel = 1;
+
+    // 게임 시작 시 콤보와 특수 공 초기화
+    combo = 0;
+    comboText.textContent = combo;
+
+    goldenBall = false;
+    bombBall = false;
+
+    scoreText.textContent = score;
+    timeText.textContent = timeLeft;
+    speedText.textContent = speedLevel;
+
+    ball.x = 300;
+    ball.y = 200;
+    ball.dx = 3;
+    ball.dy = 2;
+
+    gameRunning = true;
+
+    clearInterval(timerId);
+
+    // 게임 시작 전 3초 카운트다운
+    countdown();
+}
+
+
+function countdown() {
+
+    let count = 3;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = "50px Arial";
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        count,
+        canvas.width / 2,
+        canvas.height / 2
+    );
+
+    const countdownId = setInterval(() => {
+
+        count--;
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        if(count > 0) {
+
+            ctx.fillText(
+                count,
+                canvas.width / 2,
+                canvas.height / 2
+            );
+
+        } else {
+
+            clearInterval(countdownId);
+
+            ctx.fillText(
+                "START!",
+                canvas.width / 2,
+                canvas.height / 2
+            );
+
+            setTimeout(() => {
+
+                drawGame();
+
+                startTimer();
+
+            }, 500);
+        }
+
+    }, 1000);
+}
+
+
+// 제한 시간 타이머 시작
+function startTimer() {
+
+    timerId = setInterval(() => {
+
+        timeLeft--;
+
+        timeText.textContent = timeLeft;
+
+        if(timeLeft <= 0) {
+            endGame();
+        }
+
+    }, 1000);
+}
+
+
+function endGame(){
+
+    gameRunning = false;
+
+    clearInterval(timerId);
+
+    clearTimeout(comboTimer);
+    clearTimeout(goldenBallTimer);
+    clearTimeout(bombBallTimer);
+
+    if(animId) {
+        cancelAnimationFrame(animId);
+    }
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.font = "32px Arial";
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "게임 종료!",
+        canvas.width / 2,
+        canvas.height / 2 - 30
+    );
+
+    ctx.fillText(
+        "최종점수 :" + score,
+        canvas.width / 2,
+        canvas.height / 2 + 20
+    );
+
+    // 게임 종료 시 최고 점수 표시
+    ctx.font = "20px Arial";
+
+    ctx.fillText(
+        "최고점수 : " + highScore,
+        canvas.width / 2,
+        canvas.height / 2 + 60
+    );
+}
+
+
+const ball = {
+    x: 300,
+    y: 200,
+    radius: 50,
+    dx: 3,
+    dy: 2
+};
+
+
+function drawBall() {
+
+    ctx.beginPath();
+
+    ctx.arc(
+        ball.x,
+        ball.y,
+        ball.radius,
+        0,
+        Math.PI * 2
+    );
+
+
+    // 황금공과 폭탄공의 색상 설정
+    if(goldenBall) {
+
+        ctx.fillStyle = "gold";
+
+    } else if(bombBall) {
+
+        ctx.fillStyle = "black";
+
+    } else {
+
+        ctx.fillStyle = "tomato";
+    }
+
+    ctx.fill();
+
+
+    // 폭탄공에 폭탄 표시
+    if(bombBall) {
+
+        ctx.fillStyle = "white";
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+
+        ctx.fillText(
+            "💣",
+            ball.x,
+            ball.y + 10
+        );
+    }
+
+
+    // 황금공에 별 표시
+    if(goldenBall) {
+
+        ctx.fillStyle = "white";
+        ctx.font = "25px Arial";
+        ctx.textAlign = "center";
+
+        ctx.fillText(
+            "★",
+            ball.x,
+            ball.y + 9
+        );
+    }
+}
+
+
+function updateBall() {
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    if (
+        ball.x + ball.radius > canvas.width ||
+        ball.x - ball.radius < 0
+    ){
+        ball.dx = -ball.dx;
+    }
+
+    if (
+        ball.y + ball.radius > canvas.height ||
+        ball.y - ball.radius < 0
+    ){
+        ball.dy = -ball.dy;
+    }
+}
+
+
+// 클릭했을 때 나타나는 점수 효과
+function drawEffects() {
+
+    for(
+        let i = effects.length - 1;
+        i >= 0;
+        i--
+    ){
+
+        const effect = effects[i];
+
+        effect.y -= 1;
+        effect.life--;
+
+        ctx.font = "20px Arial";
+        ctx.fillStyle = effect.color;
+        ctx.textAlign = "center";
+
+        ctx.globalAlpha =
+            effect.life / 30;
+
+        ctx.fillText(
+            effect.text,
+            effect.x,
+            effect.y
+        );
+
+        if(effect.life <= 0) {
+            effects.splice(i, 1);
+        }
+    }
+
+    ctx.globalAlpha = 1;
+}
+
+
+function drawGame() {
+
+    if(!gameRunning) {
+        return;
+    }
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    drawBall();
+
+    drawEffects();
+
+    updateBall();
+
+    animId =
+        requestAnimationFrame(drawGame);
+}
+
+
+canvas.addEventListener("click", function(event) {
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+    const mouseX =
+        event.clientX - rect.left;
+
+    const mouseY =
+        event.clientY - rect.top;
+
+    const dx =
+        mouseX - ball.x;
+
+    const dy =
+        mouseY - ball.y;
+
+    const distance =
+        Math.sqrt(dx * dx + dy * dy);
+
+
+    if (distance <= ball.radius) {
+
+        if (gameRunning) {
+
+            // 폭탄공을 잡았을 때 점수 감소
+            if(bombBall) {
+
+                score -= 3;
+
+                if(score < 0) {
+                    score = 0;
+                }
+
+                combo = 0;
+
+                comboText.textContent =
+                    combo;
+
+                effects.push({
+                    x: ball.x,
+                    y: ball.y,
+                    text: "-3",
+                    color: "red",
+                    life: 30
+                });
+
+            }
+
+
+            // 황금공을 잡았을 때 5점 추가
+            else if(goldenBall) {
+
+                score += 5;
+
+                combo++;
+
+                effects.push({
+                    x: ball.x,
+                    y: ball.y,
+                    text: "+5!",
+                    color: "gold",
+                    life: 30
+                });
+
+            }
+
+
+            // 일반공을 잡았을 때
+            else {
+
+                score++;
+
+                combo++;
+
+                effects.push({
+                    x: ball.x,
+                    y: ball.y,
+                    text: "+1",
+                    color: "blue",
+                    life: 30
+                });
+            }
+
+
+            scoreText.textContent =
+                score;
+
+
+            comboText.textContent =
+                combo;
+
+
+            // 최고 점수 갱신 및 저장
+            if(score > highScore) {
+
+                highScore = score;
+
+                localStorage.setItem(
+                    "highScore",
+                    highScore
+                );
+
+                highScoreText.textContent =
+                    highScore;
+            }
+
+
+            // 1.5초 동안 공을 못 잡으면 콤보 초기화
+            clearTimeout(comboTimer);
+
+            comboTimer = setTimeout(() => {
+
+                combo = 0;
+
+                comboText.textContent =
+                    combo;
+
+            }, 1500);
+
+
+            // 속도 증가
+            speedLevel++;
+
+            speedText.textContent =
+                speedLevel;
+
+
+            if (ball.dx > 0) {
+                ball.dx += 0.5;
+            } else {
+                ball.dx -= 0.5;
+            }
+
+
+            if(ball.dy > 0) {
+                ball.dy += 0.5;
+            } else {
+                ball.dy -= 0.5;
+            }
+
+
+            moveBallRandom();
+        }
+    }
+});
+
+
+function moveBallRandom() {
+
+    ball.x =
+        Math.random() *
+        (canvas.width - ball.radius * 2)
+        + ball.radius;
+
+    ball.y =
+        Math.random() *
+        (canvas.height - ball.radius * 2)
+        + ball.radius;
+
+
+    goldenBall = false;
+    bombBall = false;
+
+
+    // 새로운 공이 나타날 때 황금공 또는 폭탄공을 랜덤으로 결정
+    const random = Math.random();
+
+
+    // 20% 확률로 황금공
+    if(random < 0.20) {
+
+        goldenBall = true;
+
+        goldenBallTimer =
+            setTimeout(() => {
+
+                goldenBall = false;
+
+            }, 3000);
+    }
+
+
+    // 15% 확률로 폭탄공
+    else if(random < 0.35) {
+
+        bombBall = true;
+
+        bombBallTimer =
+            setTimeout(() => {
+
+                bombBall = false;
+
+            }, 3000);
+    }
+}
+
+</script>
+
+</body>
+</html>
