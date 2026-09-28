@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Pong 게임</title>
+
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial;
+            background: #f5f5f5;
+        }
+
+        canvas {
+            border: 2px solid black;
+            background: #111;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Pong 게임</h1>
+    <p>왼쪽 플레이어: W / S | 오른쪽 플레이어: ↑ / ↓</p>
+    <p>왼쪽 점수: <span id="leftScore">0</span> | 오른쪽 점수: <span id="rightScore">0</span></p>
+
+    <canvas id="gameCanvas" width="700" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const leftScoreText = document.getElementById("leftScore");
+        const rightScoreText = document.getElementById("rightScore");
+
+        let leftScore = 0;
+        let rightScore = 0;
+
+        // 추가: 게임이 끝났는지 확인
+        let gameOver = false;
+
+        // 추가: 먼저 20점을 얻으면 승리
+        const maxScore = 20;
+
+        // 추가: 공이 라켓에 맞을 때 증가하는 속도
+        const speedIncrease = 0.5;
+
+
+        function drawCenterLine() {
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.strokeStyle = "white";
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 10,
+            dx: 5,
+            dy: 3
+        };
+
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "white";
+            ctx.fill();
+        }
+
+
+        function moveBall() {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                ball.dy *= -1;
+            }
+
+
+            if (ball.x - ball.radius < 0) {
+                rightScore++;
+                rightScoreText.textContent = rightScore;
+                resetBall();
+
+                // 추가: 오른쪽 플레이어가 20점이면 게임 종료
+                if (rightScore >= maxScore) {
+                    gameOver = true;
+                    alert("오른쪽 플레이어 승리!");
+                }
+            }
+
+
+            if (ball.x + ball.radius > canvas.width) {
+                leftScore++;
+                leftScoreText.textContent = leftScore;
+                resetBall();
+
+                // 추가: 왼쪽 플레이어가 20점이면 게임 종료
+                if (leftScore >= maxScore) {
+                    gameOver = true;
+                    alert("왼쪽 플레이어 승리!");
+                }
+            }
+
+
+            if (isBallHitPaddle(leftPaddle)) {
+
+                // 변경: 왼쪽 라켓에 맞을 때 공의 속도 증가
+                ball.dx = Math.abs(ball.dx) + speedIncrease;
+            }
+
+
+            if (isBallHitPaddle(rightPaddle)) {
+
+                // 변경: 오른쪽 라켓에 맞을 때 공의 속도 증가
+                ball.dx = -Math.abs(ball.dx) - speedIncrease;
+            }
+
+        }
+
+
+        function isBallHitPaddle(paddle) {
+            return (
+                ball.x - ball.radius < paddle.x + paddle.width &&
+                ball.x + ball.radius > paddle.x &&
+                ball.y - ball.radius < paddle.y + paddle.height &&
+                ball.y + ball.radius > paddle.y
+            );
+        }
+
+
+        const keys = {};
+
+
+        document.addEventListener("keydown", function (event) {
+            keys[event.key] = true;
+        });
+
+
+        document.addEventListener("keyup", function (event) {
+            keys[event.key] = false;
+        });
+
+
+        function movePaddles() {
+            if (keys["w"] || keys["W"]) {
+                leftPaddle.y -= leftPaddle.speed;
+            }
+
+            if (keys["s"] || keys["S"]) {
+                leftPaddle.y += leftPaddle.speed;
+            }
+
+            keepPaddleInside(leftPaddle);
+        }
+
+
+    function moveAI() {
+        const aiCenter = rightPaddle.y + rightPaddle.height / 2;
+        const speed = 2;
+
+        // 추가: 공이 AI 라켓까지 오는 시간을 계산
+        const distanceX = rightPaddle.x - ball.x;
+        const timeToReach = Math.abs(distanceX / ball.dx);
+
+        // 추가: 공이 도착할 위치를 미리 예측
+        const predictedY = ball.y + ball.dy * timeToReach;
+
+        // 추가: AI 이동 속도를 기존 2보다 빠르게 설정
+        const fastSpeed = 5;
+
+        // 변경: 공의 현재 위치 대신 예측한 위치를 따라가도록 함
+        if (predictedY < aiCenter) {
+            rightPaddle.y -= fastSpeed;
+        }
+        else {
+            rightPaddle.y += fastSpeed;
+        }
+
+        keepPaddleInside(rightPaddle);
+}
+
+
+
+        function keepPaddleInside(paddle) {
+            if (paddle.y < 0) {
+                paddle.y = 0;
+            }
+
+            if (paddle.y + paddle.height > canvas.height) {
+                paddle.y = canvas.height - paddle.height;
+            }
+        }
+
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+
+            // 수정: 점수가 나면 공의 가로 속도를 처음 속도인 5로 초기화
+            ball.dx = 5;
+
+            ball.dy = Math.random() * 6 - 3;
+
+            if (ball.dy === 0) {
+                ball.dy = 2;
+            }
+        }
+
+
+        const paddleWidht = 12;
+        const paddleHeight = 80;
+
+
+        const leftPaddle = {
+            x: 30,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidht,
+            height: paddleHeight,
+            speed: 6
+        };
+
+
+        const rightPaddle = {
+            x: canvas.width - 30 - paddleWidht,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidht,
+            height: paddleHeight,
+            speed: 6
+        };
+
+
+        function drawRect(rect) {
+            ctx.fillStyle = "white";
+            ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+        }
+
+
+        function drawGame() {
+
+            // 추가: 20점에 도달하면 게임을 멈춤
+            if (gameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawCenterLine();
+
+            moveBall();
+            drawBall();
+
+            movePaddles();
+            moveAI();
+
+            drawRect(leftPaddle);
+            drawRect(rightPaddle);
+
+            requestAnimationFrame(drawGame);
+        }
+
+
+        drawGame();
+
+    </script>
+
+</body>
+
+</html>
